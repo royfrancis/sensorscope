@@ -1,0 +1,92 @@
+---
+title: SensorScope
+description: An interactive explorer for film and camera sensor formats
+format: 
+  html:
+    page-layout: full
+    title-block-banner: true
+    theme: 
+      - lux
+      - "assets/css/styles.scss"
+---
+
+```{r}
+#| eval: false
+#| include: false
+
+library(rvest)
+library(dplyr)
+
+tables <- read_html("https://en.wikipedia.org/wiki/Image_sensor_format") %>%
+  html_table(fill = TRUE)
+tables[[1]] %>% writexl::write_xlsx("sensor-formats.xlsx")
+```
+
+```{r}
+#| include: false
+
+library(readxl)
+library(randomcoloR)
+library(glue)
+library(dplyr)
+
+dfr <- readxl::read_xlsx("sensor-formats.xlsx") %>%
+  setNames(c("label", "diagonal", "width", "height", "aspect_ratio", "area", "stops", "crop_factor", "category")) %>%
+  arrange(desc(area)) %>%
+  mutate(height_percent = round(100 * (height / first(height)), 2)) %>%
+  mutate(width_percent = round(100 * (width / first(width)), 2))
+
+pal <- randomcoloR::distinctColorPalette(length(unique(dfr$category)))
+cols <- pal[as.integer(factor(dfr$category))]
+category <- glue('<span class="highlight" style="background-color:{cols};">{dfr$category}</span>{dfr$height}mm x {dfr$width}mm {dfr$aspect_ratio}')
+```
+
+```{r}
+#| echo: false
+#| output: asis
+#| results: asis
+
+vec <- vector()
+vec <- c(vec, '<div class="sensor-parent">\n')
+
+for (i in 1:nrow(dfr)) {
+  vec <- c(
+    vec, glue(
+      '<div style="width:{dfr$width_percent[i]}%;aspect-ratio:{sub(":","/",dfr$aspect_ratio[i])};z-index:{i+1};border-color:{cols[i]};" class="sensor sensor-edge"><div class="label">{dfr$label[i]}</div><div class="category">{category[i]}</div></div>\n'
+    )
+    #glue(
+    #  '<div style="width:{dfr$width_percent[i]}%;aspect-ratio:{sub(":","/",dfr$aspect_ratio[i])};z-index:{i+1};background-color:{cols[i]};" class="sensor sensor-fill"></div>\n'
+    #)
+  )
+}
+
+vec <- c(vec, "</div>\n")
+
+cat(paste(vec, collapse = ""))
+```
+
+<br>
+
+```{r}
+#| echo: false
+
+library(DT)
+
+readxl::read_xlsx("sensor-formats.xlsx") %>%
+  select(-2, -6, -7) %>%
+  datatable(
+    filter = "top",
+    options = list(
+      dom = c("tp"),
+      columnDefs = list(list(className = "dt-center", targets = c(2,3,4,5)))
+    )
+  )
+```
+
+<br>
+
+Data source: [Wikipedia](https://en.wikipedia.org/wiki/Image_sensor_format)
+
+---
+
+2024 Roy francis
